@@ -1,0 +1,22 @@
+{
+	"compiler": "g++",
+	"compiler-args": [
+		"-Wextra",
+		"-std=c++17",
+		"-lm"
+	],
+	"compiler-libs": [],
+	"executable-name": "exe",
+	"ignores" : [],
+    "packages": [
+        {
+            "id": "",
+            "defs":  [
+                {
+                    "id": "",
+                    "impls": [""]
+                }
+            ]
+        }
+    ]
+}
