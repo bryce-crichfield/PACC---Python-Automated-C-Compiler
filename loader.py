@@ -1,26 +1,17 @@
 
 from dataclasses import dataclass
 import json
-from operator import contains
 import os
-from sys import implementation
 from typing import List, Set, Tuple
-from packer import Settings, packer_validate_cwd_is_packer
+from util import validate_cwd_is_packer
+from data import Settings, Package, PackageUnit
 
-@dataclass 
-class PackageUnit:
-    id: str
-    implementations: List[str]
 
-@dataclass
-class Package:
-    id: str
-    units: List[PackageUnit]
 
 
 # TODO: Add proper error checking for differences in JSON and Directory
 def load_json(path) -> Tuple[Settings, List[Package]]:
-    packer_validate_cwd_is_packer("Cannot Load Settings")
+    validate_cwd_is_packer("Cannot Load Settings")
     with open(os.getcwd() + "/packer.json") as file:
         data = json.loads(file.read())
         settings = load_settings(data)
@@ -48,7 +39,7 @@ def load_packages_json(data) -> List[Package]:
     for json_pkg in data["packages"]:
         defs = []
         for json_def in json_pkg["defs"]:
-            impls = json_def["impls"][0].split(", ")
+            impls = json_def["impls"]
             defs.append(PackageUnit(json_def["id"], impls))
         pkgs.append(Package(json_pkg["id"], defs))
     return pkgs
@@ -68,7 +59,7 @@ def load_packages_directory(path) -> List[Package]:
 # If they match this will return safely, otherwise throw error
 def compare_directory_and_report(from_json, from_dir):
     unique_names = Set()
-    for objects in from_dir.objects:
+    for object in from_dir.objects:
         unique_names.append(object.split(".", 1)[0])
     if len(unique_names) != len(from_json.objects):
         raise Exception("Directory and JSON don't match")
