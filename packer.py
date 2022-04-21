@@ -1,16 +1,18 @@
-from compileall import compile_dir
-from dataclasses import dataclass
-import json
 import os
 import pathlib
 import shutil
-import sys
 import subprocess
-from typing import List, Tuple
 from loader import load_json
 from builder import compile
 from data import Settings, Package, PackageUnit
-from util import OKBLUE, OKGREEN, FAIL, validate_cwd_is_packer
+from util import validate_cwd_is_packer
+from logger import Logger, VerbosityHigh, VerbosityLow, VerbosityMid
+import argparse
+
+arg_parser = argparse.ArgumentParser(
+    prog="Packer",
+    description="Packaging Build Tool for C++"
+)
 
 
 def packer_init():
@@ -28,36 +30,81 @@ def packer_init():
     shutil.copyfile(def_sets, settings_path)
     os.chdir(absolute)
 
+# TODO: Implement proper precondition checking 
+# should not overwrite current dir if packer
+# should save supplied name to manifest
+def run_init():
+    class arg_action(argparse.Action):
+        def __call__(self, parser, args, values, option_string=None):
+            print(values[0])
+            # packer_init()
+    return arg_action
 
-def packer_run_init():
-    packer_init()
-    exit(1)
 
 
-def packer_run_build(settings: Settings, packages_manifest):
-    validate_cwd_is_packer("Cannot Build")
-    compile(settings, packages_manifest)
+def run_build(settings: Settings, packages_manifest, logger: Logger):
+    class arg_action(argparse.Action):
+        def __call__(self, parser, args, values, option_string=None):
+            validate_cwd_is_packer("Cannot Build")
+            compile(settings, packages_manifest, logger)
+    return arg_action
 
 
-def packer_run_execute(settings):
-    subprocess.run([f"./{settings.executable_name}"])
+
+def run_execute(settings):
+    class arg_action(argparse.Action):
+        def __call__(self, parser, args, values, option_string=None):
+            subprocess.run([f"./{settings.executable_name}"])
+    return arg_action
+
+def set_verbose(verbosity, logger: Logger):
+    class arg_action(argparse.Action):
+        def __call__(self, parser, args, values, option_string=None):
+            logger.verbosity_level = verbosity
+    return arg_action
+
 
 
 def packer_main():
-    if len(sys.argv) == 1:
-        print(f"{FAIL}No Arguments Provided")
-        return
-    arg = sys.argv[1]
-    if arg == "-i":
-        packer_run_init()
+    # TODO: Currently blocks --init from working
+    logger = Logger(VerbosityLow)
     validate_cwd_is_packer("From Entry")
     (settings, packages_manifest) = load_json("./packer/json")
-    if arg == "-b":
-        packer_run_build(settings, packages_manifest)
-    elif arg == "-r":
-        packer_run_execute(settings)
-    else:
-        print(f"{FAIL}Could Not Parse First Arg : {arg}")
+    
+    arg_parser.add_argument('--verbose', metavar='', nargs=0,
+        help="displays all logging information",
+        action=set_verbose(VerbosityHigh, logger)
+    )
+
+    arg_parser.add_argument('--semiverbose', metavar='', nargs=0,
+        help="displays some logging information",
+        action=set_verbose(VerbosityMid, logger)
+    )
+
+    arg_parser.add_argument('--nonverbose', metavar='', nargs=0,
+        help="displays minimal logging information",
+        action=set_verbose(VerbosityLow, logger)
+    )
+
+    arg_parser.add_argument('--build', metavar="", nargs=0,
+        help="executes the build for the current directory's packer.json manifest",
+        action=run_build(settings, packages_manifest, logger)
+    )
+
+    arg_parser.add_argument('--run', metavar='', nargs=0,
+        help='executes the current binary as specifed in the packer.json manifest',
+        action=run_execute(settings)
+    )
+
+    arg_parser.add_argument('--init', metavar='', nargs=1,
+        help='initializes the current directory with the proper file structure and manifest',
+        action=run_init()
+    )
+
+    
+
+    arg_parser.parse_args()
+
 
 
 packer_main()
